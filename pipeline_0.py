@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from duckdb import DuckDBPyRelation
 from pandas import DataFrame
 
+load_dotenv()
+
 def baixar_os_arquivos_do_gd(url_pasta, diretorio_local):
     os.makedirs(diretorio_local, exist_ok=True)
     gdown.download_folder(url_pasta, output=diretorio_local, quiet=False, use_cookies=False)
@@ -45,10 +47,19 @@ def transformar(df: DuckDBPyRelation) -> DataFrame:
     return df_transformado
 
 
+def salvar_no_postgres(df_duckdb, tabela):
+    database_url = os.getenv("DATABASE_URL")
+    engine = create_engine(database_url)
+    df_duckdb.to_sql(tabela, con=engine, if_exists="append", index=False)
+
+
 if __name__ == "__main__":
     url_pasta = 'https://drive.google.com/drive/folders/19flL9P8UV9aSu4iQtM6Ymv-77VtFcECP'
     diretorio_local = './pasta_gdown'
     #baixar_os_arquivos_do_gd(url_pasta, diretorio_local)
-    arquivos = listar_arquivos_csv(diretorio_local) 
-    data_frame_duckdb = ler_csv(arquivos)
-    transformar(data_frame_duckdb)
+    lista_de_arquivos = listar_arquivos_csv(diretorio_local)
+
+    for caminho_do_arquivo in lista_de_arquivos:
+        duck_db_df = ler_csv(caminho_do_arquivo)
+        pandas_df_transformado = transformar(duck_db_df)
+        salvar_no_postgres(pandas_df_transformado, "vendas_calculado")
